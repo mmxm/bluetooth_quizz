@@ -1,4 +1,4 @@
-package com.example.ari.bt_ttt_app;
+package com.example.ari.bt_ttt_app.controller;
 
 import android.Manifest;
 
@@ -19,6 +19,7 @@ import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -26,6 +27,8 @@ import java.util.Set;
 import java.io.IOException;
 import java.util.UUID;
 import android.util.Log;
+
+import com.example.ari.bt_ttt_app.R;
 
 public class BT_TTT_names extends AppCompatActivity {
 
@@ -52,6 +55,8 @@ public class BT_TTT_names extends AppCompatActivity {
     public static BluetoothDevice mBluetoothDevice;
     public static BluetoothSocket mBluetoothSocket = null;
     private String selectedDevice=null;
+    private CheckBox master;
+    public static boolean isMaster;
 
     ListeningThread t = null;
 
@@ -59,11 +64,20 @@ public class BT_TTT_names extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_start_game);
-
         BT_TTT_names=this;
+        //connected_test();
         checkPerm();
 
 
+    }
+
+    public synchronized void connected_test() {
+        // Move information to Game activity and finish this activity.
+        MainActivity.Opponent = "fake_opponent";
+        master = findViewById(R.id.master);
+        isMaster = master.isChecked();
+        Intent intent = new Intent(BT_TTT_names.this, BT_TTT.class);
+        startActivityForResult(intent, Finished_Activity);
     }
 
     //Check that app is allowed to use Bluetooth
@@ -236,6 +250,7 @@ public class BT_TTT_names extends AppCompatActivity {
             mBluetoothAdapter.cancelDiscovery();
         }
         else {
+
             BTArrayAdapter.clear();
             enableDiscoverability();
             mBluetoothAdapter.startDiscovery();
@@ -323,6 +338,8 @@ public class BT_TTT_names extends AppCompatActivity {
         // Move information to Game activity and finish this activity.
         mBluetoothDevice = device;
         mBluetoothSocket = socket;
+        master = findViewById(R.id.master);
+        isMaster = master.isChecked();
         Intent intent = new Intent(BT_TTT_names.this, BT_TTT.class);
         startActivityForResult(intent, Finished_Activity);
 

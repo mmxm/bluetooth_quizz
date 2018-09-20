@@ -7,7 +7,7 @@
     android:paddingLeft="@dimen/activity_horizontal_margin"
     android:paddingRight="@dimen/activity_horizontal_margin"
     android:paddingTop="@dimen/activity_vertical_margin"
-    tools:context="com.example.ari.bt_ttt_app.BT_TTT_names"
+    tools:context="com.example.ari.bt_ttt_app.controller.BT_TTT_names"
     android:background="#597fb1">
 
     <TextView
@@ -88,5 +88,14 @@
         android:onClick="server"
         android:text="Server"
         android:textColor="#ffffff" />
+
+    <CheckBox
+        android:id="@+id/master"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_alignStart="@+id/text"
+        android:layout_marginTop="114dp"
+        android:text="Game Master" />
 
 </RelativeLayout>

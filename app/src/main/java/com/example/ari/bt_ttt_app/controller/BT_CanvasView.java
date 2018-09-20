@@ -1,4 +1,4 @@
-package com.example.ari.bt_ttt_app;
+package com.example.ari.bt_ttt_app.controller;
 
 import android.app.AlertDialog;
 import android.bluetooth.BluetoothDevice;
@@ -152,11 +152,11 @@ public class BT_CanvasView extends View { //you have to create a new java file a
                         connectedThread.write(ByteArray);
                         if (turn == 1) {
                            p1Name = MainActivity.MyName.trim().toUpperCase();
-                           p2Name = MainActivity.OpponentName.trim().toUpperCase();
+                           p2Name = MainActivity.Opponent.trim().toUpperCase();
 
                         } else if (turn == 2) {
                             p2Name = MainActivity.MyName.trim().toUpperCase();
-                            p1Name = MainActivity.OpponentName.trim().toUpperCase();
+                            p1Name = MainActivity.Opponent.trim().toUpperCase();
 
                         }
                         touchEnabled = false;
@@ -409,7 +409,7 @@ public class BT_CanvasView extends View { //you have to create a new java file a
                                 new Runnable() {
                                     @Override
                                     public void run() {
-                                        Toast.makeText(BT_TTT.act_2p, MainActivity.MyName + " vs " + MainActivity.OpponentName, Toast.LENGTH_SHORT).show();
+                                        Toast.makeText(BT_TTT.act_2p, MainActivity.MyName + " vs " + MainActivity.Opponent, Toast.LENGTH_SHORT).show();
                                     }
                                 }
                         );
@@ -418,13 +418,13 @@ public class BT_CanvasView extends View { //you have to create a new java file a
                     } else {
                         try {
                             Log.i(TAG, "Hello");
-                            MainActivity.OpponentName = readMessage;
-                            Log.i(TAG, MainActivity.MyName + " vs " + MainActivity.OpponentName);
+                            MainActivity.Opponent = readMessage;
+                            Log.i(TAG, MainActivity.MyName + " vs " + MainActivity.Opponent);
                             BT_TTT.act_2p.runOnUiThread(
                                     new Runnable() {
                                         @Override
                                         public void run() {
-                                            Toast.makeText(BT_TTT.act_2p, MainActivity.MyName + " vs " + MainActivity.OpponentName, Toast.LENGTH_SHORT).show();
+                                            Toast.makeText(BT_TTT.act_2p, MainActivity.MyName + " vs " + MainActivity.Opponent, Toast.LENGTH_SHORT).show();
                                         }
                                     }
                             );

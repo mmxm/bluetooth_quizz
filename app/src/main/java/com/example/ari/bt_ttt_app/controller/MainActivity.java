@@ -1,4 +1,4 @@
-package com.example.ari.bt_ttt_app;
+package com.example.ari.bt_ttt_app.controller;
 
 import android.content.Intent;
 import android.os.Bundle;
@@ -7,18 +7,26 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 
+import com.example.ari.bt_ttt_app.R;
+import com.example.ari.bt_ttt_app.model.User;
+
 public class MainActivity extends AppCompatActivity {
     Button clearText;
     EditText name;
     Button play;
-
+    public User mMyUser;
+    public User mOpponent;
     public static String MyName = "";
-    public static String OpponentName;
+    public static String Opponent;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        mMyUser = new User();
+        mOpponent = new User();
 
         play = findViewById(R.id.play);
         play.setOnClickListener(
@@ -32,6 +40,7 @@ public class MainActivity extends AppCompatActivity {
                             name.setError("Enter Name");
                         } else {
                             Intent intent;
+                            mMyUser.setFirstname(MyName);
                             intent = new Intent(MainActivity.this, BT_TTT_names.class);
                             startActivity(intent);
                         }
