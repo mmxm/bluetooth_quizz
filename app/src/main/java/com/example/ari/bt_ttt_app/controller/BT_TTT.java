@@ -60,8 +60,6 @@ public class BT_TTT extends AppCompatActivity implements View.OnClickListener{
 
     boolean oncewin = false;
     boolean oncedrawen = false;
-    boolean oppontentRematch = false;
-    boolean playerRematch = false;
     protected boolean myAnswerGiven = false, opAnswerGiven = false;
     protected boolean waitResult = false, opReady = false, myReady = false;
     protected boolean isMyAnswerGood, isOpAnswerGood;
@@ -69,10 +67,6 @@ public class BT_TTT extends AppCompatActivity implements View.OnClickListener{
     boolean restart = false;
     protected String lastResult;
     private ScoreManager scoreManager;
-
-
-    int cnt = 0;
-    int[] time = {1000};
     BluetoothSocket bluetoothSocket;
     BluetoothDevice bluetoothDevice;
     private boolean isMaster;
@@ -81,8 +75,6 @@ public class BT_TTT extends AppCompatActivity implements View.OnClickListener{
     String p1Name = "";
     String p2Name = "";
     public static int[][] a = new int[3][3];
-    public static int turn = 0;
-
     public static ConnectedThread connectedThread = null;
 
     @Override
@@ -96,7 +88,7 @@ public class BT_TTT extends AppCompatActivity implements View.OnClickListener{
             mNumberOfQuestions = savedInstanceState.getInt(BUNDLE_STATE_QUESTION);
         } else {
             //mScore = 0;
-            mNumberOfQuestions = 3;
+            mNumberOfQuestions = 1;
         }
 
 
@@ -192,7 +184,7 @@ public class BT_TTT extends AppCompatActivity implements View.OnClickListener{
 
         // If this is the last question, ends the game.
         // Else, display the next question
-        if (mNumberOfQuestions <= 0) { //TODO: Check that
+        if (mNumberOfQuestions <= 0 && myReady) { //TODO: Check that
             // End the game
             FragmentTransaction ft = getFragmentManager().beginTransaction();
             Fragment prev = getFragmentManager().findFragmentByTag("dialog");
@@ -201,8 +193,7 @@ public class BT_TTT extends AppCompatActivity implements View.OnClickListener{
             }
             AskNewGameDialogFragment f = AskNewGameDialogFragment.newInstance("TODO");
             f.show(ft, "dialog");
-        }
-        if (isMaster) {
+        }else if (isMaster) {
             if(opReady && myReady){
                 nextQuestion();
             }
@@ -415,7 +406,11 @@ public class BT_TTT extends AppCompatActivity implements View.OnClickListener{
                             opRestartGiven = true;
                             JSONObject jsonObj = new JSONObject(readMessage);
                             opRestart = jsonObj.getBoolean("Restart");
-                            chooseToEndGame();
+                            if (opRestart){
+                                chooseToEndGame();
+                            }else{
+                                endAct();
+                            }
                         }
                     }else {
                         // Message for slave
@@ -441,49 +436,13 @@ public class BT_TTT extends AppCompatActivity implements View.OnClickListener{
                         } else if (readMessage.contains("Restart")) {
                             JSONObject jsonObj = new JSONObject(readMessage);
                             if(jsonObj.getBoolean("Restart")){
-                                restartAct();
+                                resetEverything();
+                                sendReady();
                             }else{
                                 endAct();
                             }
                         }
                     }
-
-
-                    // Message for both Master or slave
-                    /*if (readMessage.equals("REMATCH")) {
-                        Log.d(TAG, "rematch");
-                        oppontentRematch = true;
-                        //init();
-                        //postInvalidate();
-                        BT_TTT.act_2p.runOnUiThread(
-                                new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        Toast.makeText(BT_TTT.act_2p, MainActivity.MyName + " vs " + MainActivity.Opponent, Toast.LENGTH_SHORT).show();
-                                    }
-                                }
-                        );
-                    } else if (readMessage.equals("END")) {
-                        break;
-                    } else {
-                        try {
-                            Log.i(TAG, "Hello");
-                            MainActivity.Opponent = readMessage;
-                            Log.i(TAG, MainActivity.MyName + " vs " + MainActivity.Opponent);
-                            BT_TTT.act_2p.runOnUiThread(
-                                    new Runnable() {
-                                        @Override
-                                        public void run() {
-                                            Toast.makeText(BT_TTT.act_2p, MainActivity.MyName + " vs " + MainActivity.Opponent, Toast.LENGTH_SHORT).show();
-                                        }
-                                    }
-                            );
-                        } catch (Exception e) {
-                            Log.d(TAG, e.getMessage());
-                        }
-                    } */
-
-
                 } catch (Exception e) {
                     //Log.e(TAG, "disconnected", e);
                     break;
@@ -690,18 +649,27 @@ public class BT_TTT extends AppCompatActivity implements View.OnClickListener{
         finish();
     }
 
-    private void restartAct(){
+    /*private void restartAct(){
         Intent intent = getIntent();
         finish();
         startActivity(intent);
+    } */
+
+    private void resetEverything(){
+        opRestartGiven = false;
+        myRestartGiven = false;
+        mNumberOfQuestions = 2;
+        if(isMaster) {
+            scoreManager.reset();
+        }
     }
 
     //Only called by Master
     private void chooseToEndGame(){
         if (opRestartGiven && myRestartGiven) {
             if (opRestart && myRestart) {
+                resetEverything();
                 sendRestartGame(true);
-                restartAct();
             } else if (!opRestart) {
                 endAct();
             } else {

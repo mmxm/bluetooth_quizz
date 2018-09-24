@@ -39,6 +39,11 @@ public class ScoreManager {
         }
     }
 
+    public void reset(){
+        setMyScore(0);
+        setOpScore(0);
+    }
+
     public void updateScore(int myScore_, int opScore_){
         this.myScore = myScore_;
         this.opScore = opScore_;
