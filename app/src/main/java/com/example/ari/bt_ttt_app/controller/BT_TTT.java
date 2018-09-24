@@ -65,6 +65,8 @@ public class BT_TTT extends AppCompatActivity implements View.OnClickListener{
     protected boolean myAnswerGiven = false, opAnswerGiven = false;
     protected boolean waitResult = false, opReady = false, myReady = false;
     protected boolean isMyAnswerGood, isOpAnswerGood;
+    boolean myRestart = false, myRestartGiven = false, opRestartGiven = false, opRestart = false;
+    boolean restart = false;
     protected String lastResult;
     private ScoreManager scoreManager;
 
@@ -94,10 +96,10 @@ public class BT_TTT extends AppCompatActivity implements View.OnClickListener{
             mNumberOfQuestions = savedInstanceState.getInt(BUNDLE_STATE_QUESTION);
         } else {
             //mScore = 0;
-            mNumberOfQuestions = 10;
+            mNumberOfQuestions = 3;
         }
 
-        mEnableTouchEvents = true;
+
 
         // Wire widgets
         mQuestionTextView = (TextView) findViewById(R.id.activity_game_question_text);
@@ -131,10 +133,13 @@ public class BT_TTT extends AppCompatActivity implements View.OnClickListener{
         this.isMaster = BT_TTT_names.isMaster;
 
         if(this.isMaster){
+            myReady = true;
             scoreManager = new ScoreManager();
-            mCurrentQuestion = mQuestionBank.getQuestion();
-            this.displayQuestion(mCurrentQuestion);
-            sendQuestion(mCurrentQuestion);
+            //mCurrentQuestion = mQuestionBank.getQuestion();
+            //this.displayQuestion(mCurrentQuestion);
+            //sendQuestion(mCurrentQuestion);
+        }else {
+            sendReady();
         }
     }
 
@@ -184,19 +189,27 @@ public class BT_TTT extends AppCompatActivity implements View.OnClickListener{
     //only called by Master
     public void endQuestion(){
         Log.i(TAG, "Ending question");
+
         // If this is the last question, ends the game.
         // Else, display the next question
-        if (--mNumberOfQuestions == 0) {
+        if (mNumberOfQuestions <= 0) { //TODO: Check that
             // End the game
-            endGame();
+            FragmentTransaction ft = getFragmentManager().beginTransaction();
+            Fragment prev = getFragmentManager().findFragmentByTag("dialog");
+            if (prev != null) {
+                ft.remove(prev);
+            }
+            AskNewGameDialogFragment f = AskNewGameDialogFragment.newInstance("TODO");
+            f.show(ft, "dialog");
         }
-        if(isMaster && opReady){
-            nextQuestion();
-        }else if (isMaster){
-            myReady = true;
-        }else {
+        if (isMaster) {
+            if(opReady && myReady){
+                nextQuestion();
+            }
+        } else {
             sendReady();
         }
+
     }
 
     //Only called by master
@@ -207,59 +220,24 @@ public class BT_TTT extends AppCompatActivity implements View.OnClickListener{
         opReady = false;
         myReady = false;
         sendResult(res);
-        createScoreDialog(res, myScore, opScore);
+        lastResult = ScoreManager.printResult(this.isMyAnswerGood, res);
+        createScoreDialog(lastResult, myScore, opScore);
     }
 
-    private void createScoreDialog(int res, int myScore, int opScore){
+    private void createScoreDialog(String title, int myScore, int opScore){
         Log.i(TAG, "Printing result Toast");
-        lastResult = ScoreManager.printResult(this.isMyAnswerGood, res);
         FragmentTransaction ft = getFragmentManager().beginTransaction();
         //Check there is no open dialog
         Fragment prev = getFragmentManager().findFragmentByTag("dialog");
         if (prev != null) {
             ft.remove(prev);
         }
-        PrintScoreDialogFragment f = PrintScoreDialogFragment.newInstance(lastResult, myScore, opScore);
-        f.show(ft, "Test");
+        PrintScoreDialogFragment f = PrintScoreDialogFragment.newInstance(title, myScore, opScore);
+        f.show(ft, "dialog");
 
 
         //Toast.makeText(BT_TTT.act_2p, lastResult, Toast.LENGTH_SHORT).show();
         Log.i(TAG, "Printed");
-    }
-
-    public static class PrintScoreDialogFragment extends DialogFragment {
-
-        public static PrintScoreDialogFragment newInstance(String res, int myScore, int opScore) {
-            PrintScoreDialogFragment f = new PrintScoreDialogFragment();
-
-            Bundle args = new Bundle();
-            args.putString("res", res);
-            args.putInt("myScore", myScore);
-            args.putInt("opScore", opScore);
-            f.setArguments(args);
-            return f;
-        }
-
-        @Override
-        public Dialog onCreateDialog(Bundle savedInstanceState) {
-            // Use the Builder class for convenient dialog construction
-            super.onCreate(savedInstanceState);
-            String res = getArguments().getString("res");
-            int myScore = getArguments().getInt("myScore");
-            int opScore = getArguments().getInt("opScore");
-            AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
-            builder.setTitle(res)
-                    .setMessage("Your score is " + myScore + "\n"+"Your opponent score is " + opScore);
-            builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
-                @Override
-                public void onClick(DialogInterface dialog, int which) {
-                    ((BT_TTT)getActivity()).endQuestion();
-                }
-            })
-                    .setCancelable(false);
-            // Create the AlertDialog object and return it
-            return builder.create();
-        }
     }
 
 
@@ -274,28 +252,10 @@ public class BT_TTT extends AppCompatActivity implements View.OnClickListener{
         return mEnableTouchEvents && super.dispatchTouchEvent(ev);
     }
 
-    private void endGame() {
 
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-
-        builder.setTitle("Well done!")
-                .setMessage("Your score is " + myScore)
-                .setPositiveButton("OK", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        // End the activity
-                        Intent intent = new Intent();
-                        intent.putExtra(BUNDLE_EXTRA_SCORE, myScore);
-                        setResult(RESULT_OK, intent);
-                        finish();
-                    }
-                })
-                .setCancelable(false)
-                .create()
-                .show();
-    }
 
     protected void displayQuestion(final Question question) {
+        mNumberOfQuestions--;
         mEnableTouchEvents = true;
         myAnswerGiven = false;
         opAnswerGiven = false;
@@ -343,6 +303,34 @@ public class BT_TTT extends AppCompatActivity implements View.OnClickListener{
             JSONObject obj = new JSONObject();
             try {
                 obj.put("Ready", "true");
+
+            }catch(JSONException e) {
+                e.printStackTrace();
+            }
+            threadWrite(obj.toString());
+        }
+    }
+
+    //Only called by slave
+    private void sendRestartAnswer(boolean answer){
+        if (connectedThread != null) {
+            JSONObject obj = new JSONObject();
+            try {
+                obj.put("Restart", answer);
+
+            }catch(JSONException e) {
+                e.printStackTrace();
+            }
+            threadWrite(obj.toString());
+        }
+    }
+
+    //Only called by master
+    private void sendRestartGame(boolean restart){
+        if (connectedThread != null) {
+            JSONObject obj = new JSONObject();
+            try {
+                obj.put("Restart", restart);
 
             }catch(JSONException e) {
                 e.printStackTrace();
@@ -406,7 +394,7 @@ public class BT_TTT extends AppCompatActivity implements View.OnClickListener{
 
                     if (isMaster){
                         // Message for Master
-                        if (readMessage.contains("Ready") && !opReady && isMaster){
+                        if (readMessage.contains("Ready") && !opReady){
                             opReady = true;
                             BT_TTT.act_2p.runOnUiThread(
                                     new Runnable() {
@@ -416,19 +404,22 @@ public class BT_TTT extends AppCompatActivity implements View.OnClickListener{
                                         }
                                     }
                             );
-                        } else if( readMessage.contains("Answer") && !opAnswerGiven && isMaster){
+                        } else if( readMessage.contains("Answer") && !opAnswerGiven){
                             opAnswerGiven = true;
                             JSONObject jsonObj = new JSONObject(readMessage);
                             isOpAnswerGood = jsonObj.getBoolean("Answer");
                             if (opAnswerGiven && myAnswerGiven){
                                 printScore();
                             }
+                        } else if(readMessage.contains("Restart") && !opRestartGiven){
+                            opRestartGiven = true;
+                            JSONObject jsonObj = new JSONObject(readMessage);
+                            opRestart = jsonObj.getBoolean("Restart");
+                            chooseToEndGame();
                         }
                     }else {
                         // Message for slave
                         if (readMessage.contains("mQuestion")) {
-
-                            Log.i(TAG, "**************ok******************");
                             // new question has been received by slave
                             JSONObject jsonObj = new JSONObject(readMessage);
                             Question q = new Question(jsonObj);
@@ -443,12 +434,17 @@ public class BT_TTT extends AppCompatActivity implements View.OnClickListener{
                                     }
                             );
                         } else if (readMessage.contains("Result") && waitResult) {
-                            //TODO: Add check result expected
                             waitResult = false;
                             JSONObject jsonObj = new JSONObject(readMessage);
-                            createScoreDialog(jsonObj.getInt("Result"),jsonObj.getInt("opScore"),jsonObj.getInt("masterScore") );
-                        } else if (readMessage.contains("END")) {
-                            endGame();
+                            lastResult = ScoreManager.printResult(isMyAnswerGood, jsonObj.getInt("Result"));
+                            createScoreDialog(lastResult,jsonObj.getInt("opScore"),jsonObj.getInt("masterScore") );
+                        } else if (readMessage.contains("Restart")) {
+                            JSONObject jsonObj = new JSONObject(readMessage);
+                            if(jsonObj.getBoolean("Restart")){
+                                restartAct();
+                            }else{
+                                endAct();
+                            }
                         }
                     }
 
@@ -599,5 +595,120 @@ public class BT_TTT extends AppCompatActivity implements View.OnClickListener{
 
         System.out.println("GameActivity::onDestroy()");
     }
+
+    public static class PrintScoreDialogFragment extends DialogFragment {
+
+        public static PrintScoreDialogFragment newInstance(String res, int myScore, int opScore) {
+            PrintScoreDialogFragment f = new PrintScoreDialogFragment();
+
+            Bundle args = new Bundle();
+            args.putString("res", res);
+            args.putInt("myScore", myScore);
+            args.putInt("opScore", opScore);
+            f.setArguments(args);
+            return f;
+        }
+
+        @Override
+        public Dialog onCreateDialog(Bundle savedInstanceState) {
+            // Use the Builder class for convenient dialog construction
+            super.onCreate(savedInstanceState);
+            String res = getArguments().getString("res");
+            int myScore = getArguments().getInt("myScore");
+            int opScore = getArguments().getInt("opScore");
+            AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
+            builder.setTitle(res)
+                    .setMessage("Your score is " + myScore + "\n"+"Your opponent score is " + opScore);
+            builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+                    ((BT_TTT)getActivity()).myReady = true;
+                    ((BT_TTT)getActivity()).endQuestion();
+                }
+            })
+                    .setCancelable(false);
+            // Create the AlertDialog object and return it
+            return builder.create();
+        }
+    }
+
+    public static class AskNewGameDialogFragment extends DialogFragment {
+
+        public static AskNewGameDialogFragment newInstance(String res) {
+            AskNewGameDialogFragment f = new AskNewGameDialogFragment();
+
+            Bundle args = new Bundle();
+            args.putString("res", res);
+            f.setArguments(args);
+            return f;
+        }
+
+        @Override
+        public Dialog onCreateDialog(Bundle savedInstanceState) {
+            // Use the Builder class for convenient dialog construction
+            super.onCreate(savedInstanceState);
+            String res = getArguments().getString("res");
+            AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
+            builder.setTitle(res)
+                    .setMessage("Do you want to start a new game ?");
+            builder.setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+                    ((BT_TTT)getActivity()).endGame(true);
+                }
+            }).setCancelable(false);
+            builder.setNegativeButton("No", new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+                    ((BT_TTT)getActivity()).endGame(false);
+                }
+            })
+                    .setCancelable(false);
+            // Create the AlertDialog object and return it
+            return builder.create();
+        }
+    }
+
+    private void endGame(boolean answer) {
+        if (!isMaster){
+            sendRestartAnswer(answer);
+            if(!answer){
+                endAct();
+            }
+        }else{
+            this.myRestart = answer;
+            this.myRestartGiven = true;
+            chooseToEndGame();
+        }
+
+    }
+
+    private void endAct(){
+        Intent intent = new Intent();
+        intent.putExtra(BUNDLE_EXTRA_SCORE, myScore);
+        setResult(RESULT_OK, intent);
+        finish();
+    }
+
+    private void restartAct(){
+        Intent intent = getIntent();
+        finish();
+        startActivity(intent);
+    }
+
+    //Only called by Master
+    private void chooseToEndGame(){
+        if (opRestartGiven && myRestartGiven) {
+            if (opRestart && myRestart) {
+                sendRestartGame(true);
+                restartAct();
+            } else if (!opRestart) {
+                endAct();
+            } else {
+                sendRestartGame(false);
+            }
+        }
+    }
+
 }
 
