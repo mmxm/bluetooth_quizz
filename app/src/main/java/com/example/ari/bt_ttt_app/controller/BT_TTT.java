@@ -84,11 +84,9 @@ public class BT_TTT extends AppCompatActivity implements View.OnClickListener{
         setContentView(R.layout.activity_bt_ttt);mQuestionBank = this.generateQuestions();
 
         if (savedInstanceState != null) {
-            //mScore = savedInstanceState.getInt(BUNDLE_STATE_SCORE);
             mNumberOfQuestions = savedInstanceState.getInt(BUNDLE_STATE_QUESTION);
         } else {
-            //mScore = 0;
-            mNumberOfQuestions = 1;
+            mNumberOfQuestions = 4;
         }
 
 
@@ -649,16 +647,10 @@ public class BT_TTT extends AppCompatActivity implements View.OnClickListener{
         finish();
     }
 
-    /*private void restartAct(){
-        Intent intent = getIntent();
-        finish();
-        startActivity(intent);
-    } */
-
     private void resetEverything(){
         opRestartGiven = false;
         myRestartGiven = false;
-        mNumberOfQuestions = 2;
+        mNumberOfQuestions = 4;
         if(isMaster) {
             scoreManager.reset();
         }
