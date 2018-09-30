@@ -1,5 +1,8 @@
 package com.example.ari.bt_ttt_app.model;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.List;
 
@@ -29,4 +32,14 @@ public class QuestionBank {
         // Please note the post-incrementation
         return mQuestionList.get(mNextQuestionIndex++);
     }
+
+    /*public void generateQuestion(){
+        try {
+            byte[] encoded = Files.readAllBytes(Paths.get("questions.json"));
+            String file = new String(encoded, StandardCharsets.UTF_8);
+        }catch (Exception e){
+
+        }
+    }*/
+
 }

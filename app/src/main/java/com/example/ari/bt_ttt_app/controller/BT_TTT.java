@@ -9,15 +9,11 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.graphics.Point;
 import android.os.Handler;
-import android.support.annotation.Nullable;
-import android.support.v4.app.FragmentManager;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.Display;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
@@ -33,6 +29,7 @@ import com.example.ari.bt_ttt_app.R;
 import com.example.ari.bt_ttt_app.model.Question;
 import com.example.ari.bt_ttt_app.model.QuestionBank;
 import com.example.ari.bt_ttt_app.model.ScoreManager;
+import com.example.ari.bt_ttt_app.model.Step;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -47,9 +44,8 @@ public class BT_TTT extends AppCompatActivity implements View.OnClickListener{
     private Button mAnswerButton4;
 
     private QuestionBank mQuestionBank;
-    private Question mCurrentQuestion;
+    Question mCurrentQuestion;
 
-    private int myScore=0, opScore=0;
     private int mNumberOfQuestions;
 
     public static final String BUNDLE_EXTRA_SCORE = "BUNDLE_EXTRA_SCORE";
@@ -58,38 +54,36 @@ public class BT_TTT extends AppCompatActivity implements View.OnClickListener{
 
     private boolean mEnableTouchEvents;
 
-    boolean oncewin = false;
-    boolean oncedrawen = false;
-    protected boolean myAnswerGiven = false, opAnswerGiven = false;
-    protected boolean waitResult = false, opReady = false, myReady = false;
-    protected boolean isMyAnswerGood, isOpAnswerGood;
-    boolean myRestart = false, myRestartGiven = false, opRestartGiven = false, opRestart = false;
-    boolean restart = false;
-    protected String lastResult;
+
     private ScoreManager scoreManager;
     BluetoothSocket bluetoothSocket;
     BluetoothDevice bluetoothDevice;
+    boolean isMyAnswerGood;
     private boolean isMaster;
+    int playerIndex;
+
+    StepFactory stepFactory;
+    Step initialStep, questionStep, scoreStep, restartStep;
+
+
 
     String TAG = "BT_CanvasView";
-    String p1Name = "";
-    String p2Name = "";
-    public static int[][] a = new int[3][3];
     public static ConnectedThread connectedThread = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        Log.i(TAG, "OK****************************");
         act_2p = this;
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_bt_ttt);mQuestionBank = this.generateQuestions();
 
-        if (savedInstanceState != null) {
-            mNumberOfQuestions = savedInstanceState.getInt(BUNDLE_STATE_QUESTION);
-        } else {
-            mNumberOfQuestions = 4;
-        }
+//        if (savedInstanceState != null) {
+//            mNumberOfQuestions = savedInstanceState.getInt(BUNDLE_STATE_QUESTION);
+//        } else {
+//
+//        }
 
-
+        //mNumberOfQuestions = 2;
 
         // Wire widgets
         mQuestionTextView = (TextView) findViewById(R.id.activity_game_question_text);
@@ -119,23 +113,25 @@ public class BT_TTT extends AppCompatActivity implements View.OnClickListener{
 
 
 
-        Log.d(TAG, "isMaster" + String.valueOf(BT_TTT_names.isMaster));
+        //Log.d(TAG, "isMaster" + String.valueOf(BT_TTT_names.isMaster));
         this.isMaster = BT_TTT_names.isMaster;
-
-        if(this.isMaster){
-            myReady = true;
-            scoreManager = new ScoreManager();
-            //mCurrentQuestion = mQuestionBank.getQuestion();
-            //this.displayQuestion(mCurrentQuestion);
-            //sendQuestion(mCurrentQuestion);
-        }else {
-            sendReady();
+        if(isMaster){
+            playerIndex = 0;
+        }else{
+            playerIndex=1;
         }
+        stepFactory = new StepFactory(playerIndex, 2);
+
+        initialStep = stepFactory.createStep(TypeStep.INITALSTEP);
+        questionStep = stepFactory.createStep(TypeStep.QUESTION);
+        scoreStep = stepFactory.createStep(TypeStep.SCORE);
+        restartStep = stepFactory.createStep(TypeStep.RESTART);
+
+        initialStep.startStep(new Step.StepEvent());
     }
 
     @Override
     protected void onSaveInstanceState(Bundle outState) {
-        outState.putInt(BUNDLE_STATE_SCORE, myScore);
         outState.putInt(BUNDLE_STATE_QUESTION, mNumberOfQuestions);
 
         super.onSaveInstanceState(outState);
@@ -145,187 +141,24 @@ public class BT_TTT extends AppCompatActivity implements View.OnClickListener{
     public void onClick(View v) {
         int responseIndex = (int) v.getTag();
 
-        if(!myAnswerGiven) {
-            this.myAnswerGiven = true;
-            if (responseIndex == mCurrentQuestion.getAnswerIndex()) {
-                // Good answer
-                Toast.makeText(this, "Correct", Toast.LENGTH_SHORT).show();
-                this.isMyAnswerGood = true;
-                //mScore++;
-            } else {
-                // Wrong answer
-                this.isMyAnswerGood = false;
-                Toast.makeText(this, "Wrong answer!", Toast.LENGTH_SHORT).show();
-            }
-
-            mEnableTouchEvents = false;
-
-            if(opAnswerGiven && isMaster) {
-
-                new Handler().postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        printScore();
-                    }
-                }, 2000); // LENGTH_SHORT is usually 2 second long
-            }
-            if (!isMaster){
-                waitResult = true;
-                sendAnswer(isMyAnswerGood);
-            }
-        }
-    }
-
-    //only called by Master
-    public void endQuestion(){
-        Log.i(TAG, "Ending question");
-
-        // If this is the last question, ends the game.
-        // Else, display the next question
-        if (mNumberOfQuestions <= 0 && myReady) { //TODO: Check that
-            // End the game
-            FragmentTransaction ft = getFragmentManager().beginTransaction();
-            Fragment prev = getFragmentManager().findFragmentByTag("dialog");
-            if (prev != null) {
-                ft.remove(prev);
-            }
-            AskNewGameDialogFragment f = AskNewGameDialogFragment.newInstance("TODO");
-            f.show(ft, "dialog");
-        }else if (isMaster) {
-            if(opReady && myReady){
-                nextQuestion();
-            }
+        boolean isMyAnswerGood;
+        if (responseIndex == mCurrentQuestion.getAnswerIndex()) {
+            // Good answer
+            Toast.makeText(this, "Correct", Toast.LENGTH_SHORT).show();
+            isMyAnswerGood = true;
         } else {
-            sendReady();
+            // Wrong answer
+            isMyAnswerGood = false;
+            Toast.makeText(this, "Wrong answer!", Toast.LENGTH_SHORT).show();
         }
 
+        questionStep.newEvent(new Step.StepEvent(playerIndex, isMyAnswerGood));
     }
 
-    //Only called by master
-    private void printScore(){
-        int res = scoreManager.addScore(this.isMyAnswerGood, this.isOpAnswerGood);
-        myScore = scoreManager.getMyScore();
-        opScore = scoreManager.getOpScore();
-        opReady = false;
-        myReady = false;
-        sendResult(res);
-        lastResult = ScoreManager.printResult(this.isMyAnswerGood, res);
-        createScoreDialog(lastResult, myScore, opScore);
-    }
-
-    private void createScoreDialog(String title, int myScore, int opScore){
-        Log.i(TAG, "Printing result Toast");
-        FragmentTransaction ft = getFragmentManager().beginTransaction();
-        //Check there is no open dialog
-        Fragment prev = getFragmentManager().findFragmentByTag("dialog");
-        if (prev != null) {
-            ft.remove(prev);
-        }
-        PrintScoreDialogFragment f = PrintScoreDialogFragment.newInstance(title, myScore, opScore);
-        f.show(ft, "dialog");
-
-
-        //Toast.makeText(BT_TTT.act_2p, lastResult, Toast.LENGTH_SHORT).show();
-        Log.i(TAG, "Printed");
-    }
-
-
-    private void nextQuestion(){
-        mCurrentQuestion = mQuestionBank.getQuestion();
-        displayQuestion(mCurrentQuestion);
-        sendQuestion(mCurrentQuestion);
-    }
 
     @Override
     public boolean dispatchTouchEvent(MotionEvent ev) {
         return mEnableTouchEvents && super.dispatchTouchEvent(ev);
-    }
-
-
-
-    protected void displayQuestion(final Question question) {
-        mNumberOfQuestions--;
-        mEnableTouchEvents = true;
-        myAnswerGiven = false;
-        opAnswerGiven = false;
-        mQuestionTextView.setText(question.getQuestion());
-        mAnswerButton1.setText(question.getChoiceList().get(0));
-        mAnswerButton2.setText(question.getChoiceList().get(1));
-        mAnswerButton3.setText(question.getChoiceList().get(2));
-        mAnswerButton4.setText(question.getChoiceList().get(3));
-    }
-
-
-    private void sendQuestion(Question question){
-        if (connectedThread != null) {
-            threadWrite(question.toJson().toString());
-        }
-    }
-
-    private void sendAnswer(boolean isAnswerGood){
-        if (connectedThread != null) {
-            JSONObject obj = new JSONObject();
-            try {
-                obj.put("Answer", isAnswerGood);
-            }catch(JSONException e) {
-                e.printStackTrace();
-            }
-            threadWrite(obj.toString());
-        }
-    }
-    private void sendResult(int result){
-        if (connectedThread != null) {
-            JSONObject obj = new JSONObject();
-            try {
-                    obj.put("Result", result);
-                    obj.put("masterScore", scoreManager.getMyScore());
-                    obj.put("opScore", scoreManager.getOpScore());
-
-            }catch(JSONException e) {
-                e.printStackTrace();
-            }
-            threadWrite(obj.toString());
-        }
-    }
-    private void sendReady(){
-        if (connectedThread != null) {
-            JSONObject obj = new JSONObject();
-            try {
-                obj.put("Ready", "true");
-
-            }catch(JSONException e) {
-                e.printStackTrace();
-            }
-            threadWrite(obj.toString());
-        }
-    }
-
-    //Only called by slave
-    private void sendRestartAnswer(boolean answer){
-        if (connectedThread != null) {
-            JSONObject obj = new JSONObject();
-            try {
-                obj.put("Restart", answer);
-
-            }catch(JSONException e) {
-                e.printStackTrace();
-            }
-            threadWrite(obj.toString());
-        }
-    }
-
-    //Only called by master
-    private void sendRestartGame(boolean restart){
-        if (connectedThread != null) {
-            JSONObject obj = new JSONObject();
-            try {
-                obj.put("Restart", restart);
-
-            }catch(JSONException e) {
-                e.printStackTrace();
-            }
-            threadWrite(obj.toString());
-        }
     }
 
     private void threadWrite(String msg){
@@ -357,16 +190,6 @@ public class BT_TTT extends AppCompatActivity implements View.OnClickListener{
 
         public void run() {
             Log.i(TAG, "BEGIN mConnectedThread");
-            if (cnt == 0) {
-                // Say hello
-                try {
-                    byte[] ByteArray = MainActivity.MyName.getBytes();
-                    connectedThread.write(ByteArray);
-                    cnt++;
-                } catch (Exception e) {
-                    Log.d(TAG, e.getMessage());
-                }
-            }
             byte[] buffer = new byte[1024];
             int bytes;
             // Listen InputStream while connected
@@ -380,82 +203,49 @@ public class BT_TTT extends AppCompatActivity implements View.OnClickListener{
                     readMessage = new String(buffer, 0, bytes);
                     Log.i(TAG, "Listening : " + readMessage);
 
-
+                    JSONObject jsonObj = new JSONObject(readMessage);
                     if (isMaster){
                         // Message for Master
-                        if (readMessage.contains("Ready") && !opReady){
-                            opReady = true;
-                            BT_TTT.act_2p.runOnUiThread(
-                                    new Runnable() {
-                                        @Override
-                                        public void run() {
-                                            endQuestion();
-                                        }
-                                    }
-                            );
-                        } else if( readMessage.contains("Answer") && !opAnswerGiven){
-                            opAnswerGiven = true;
-                            JSONObject jsonObj = new JSONObject(readMessage);
-                            isOpAnswerGood = jsonObj.getBoolean("Answer");
-                            if (opAnswerGiven && myAnswerGiven){
-                                printScore();
-                            }
-                        } else if(readMessage.contains("Restart") && !opRestartGiven){
-                            opRestartGiven = true;
-                            JSONObject jsonObj = new JSONObject(readMessage);
-                            opRestart = jsonObj.getBoolean("Restart");
-                            if (opRestart){
-                                chooseToEndGame();
-                            }else{
-                                endAct();
-                            }
+                        int id = jsonObj.getInt("Id");
+                        if (readMessage.contains("InitialReady")) {
+                            initialStep.newEvent(new Step.StepEvent(id));
+                        }else if (readMessage.contains("Ready") ){
+                            scoreStep.newEvent(new Step.StepEvent(id));
+                        } else if( readMessage.contains("Answer")){
+                            boolean isOpAnswerGood = jsonObj.getBoolean("Answer");
+                            questionStep.newEvent(new Step.StepEvent(id, isOpAnswerGood));
+                        } else if(readMessage.contains("RestartAns")){
+                            boolean ans = jsonObj.getBoolean("RestartAns");
+                            restartStep.newEvent(new Step.StepEvent(id, ans));
                         }
                     }else {
                         // Message for slave
                         if (readMessage.contains("mQuestion")) {
-                            // new question has been received by slave
-                            JSONObject jsonObj = new JSONObject(readMessage);
                             Question q = new Question(jsonObj);
-                            Log.d(TAG, "Parsed object : " + q.toString());
-                            mCurrentQuestion = q;
-                            BT_TTT.act_2p.runOnUiThread(
-                                    new Runnable() {
-                                        @Override
-                                        public void run() {
-                                            displayQuestion(mCurrentQuestion);
-                                        }
-                                    }
-                            );
-                        } else if (readMessage.contains("Result") && waitResult) {
-                            waitResult = false;
-                            JSONObject jsonObj = new JSONObject(readMessage);
-                            lastResult = ScoreManager.printResult(isMyAnswerGood, jsonObj.getInt("Result"));
-                            createScoreDialog(lastResult,jsonObj.getInt("opScore"),jsonObj.getInt("masterScore") );
-                        } else if (readMessage.contains("Restart")) {
-                            JSONObject jsonObj = new JSONObject(readMessage);
-                            if(jsonObj.getBoolean("Restart")){
-                                resetEverything();
-                                sendReady();
-                            }else{
-                                endAct();
-                            }
+                            questionStep.startStep(new Step.StepEvent(q));
+                        } else if (readMessage.contains("Result")) {
+                            scoreStep.startStep(new Step.StepEvent(jsonObj));
+                        } else if (readMessage.contains("RestartAsk")) {
+                            restartStep.startStep(new Step.StepEvent());
+                        }else if (readMessage.contains("Reset")) {
+                            initialStep.startStep(new Step.StepEvent());
+                        } else if (readMessage.contains("End")) {
+                            endAct();
                         }
                     }
                 } catch (Exception e) {
-                    //Log.e(TAG, "disconnected", e);
+                    Log.e(TAG, "disconnected", e);
                     break;
                 }
             }
         }
 
         public void write(byte[] buffer) {
-            if (!oncewin && !oncedrawen) {
-                try {
-                    Log.d(TAG, "Writing ");
-                    mmOutStream.write(buffer);
-                } catch (IOException e) {
-                    Log.e(TAG, "Exception during write", e);
-                }
+            try {
+                Log.d(TAG, "Writing ");
+                mmOutStream.write(buffer);
+            } catch (IOException e) {
+                Log.e(TAG, "Exception during write", e);
             }
         }
 
@@ -516,43 +306,6 @@ public class BT_TTT extends AppCompatActivity implements View.OnClickListener{
                 question9));
     }
 
-
-
-    @Override
-    protected void onStart() {
-        super.onStart();
-
-        System.out.println("GameActivity::onStart()");
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-
-        System.out.println("GameActivity::onResume()");
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-
-        System.out.println("GameActivity::onPause()");
-    }
-
-    @Override
-    protected void onStop() {
-        super.onStop();
-
-        System.out.println("GameActivity::onStop()");
-    }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-
-        System.out.println("GameActivity::onDestroy()");
-    }
-
     public static class PrintScoreDialogFragment extends DialogFragment {
 
         public static PrintScoreDialogFragment newInstance(String res, int myScore, int opScore) {
@@ -579,8 +332,9 @@ public class BT_TTT extends AppCompatActivity implements View.OnClickListener{
             builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
                 @Override
                 public void onClick(DialogInterface dialog, int which) {
-                    ((BT_TTT)getActivity()).myReady = true;
-                    ((BT_TTT)getActivity()).endQuestion();
+                    int i = ((BT_TTT)getActivity()).playerIndex;
+                    ((BT_TTT)getActivity()).scoreStep.newEvent(new Step.StepEvent(i));
+
                 }
             })
                     .setCancelable(false);
@@ -608,16 +362,19 @@ public class BT_TTT extends AppCompatActivity implements View.OnClickListener{
             AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
             builder.setTitle(res)
                     .setMessage("Do you want to start a new game ?");
+
             builder.setPositiveButton("Yes", new DialogInterface.OnClickListener() {
                 @Override
                 public void onClick(DialogInterface dialog, int which) {
-                    ((BT_TTT)getActivity()).endGame(true);
+                    int i = ((BT_TTT)getActivity()).playerIndex;
+                    ((BT_TTT)getActivity()).restartStep.newEvent(new Step.StepEvent(i, true));
                 }
             }).setCancelable(false);
             builder.setNegativeButton("No", new DialogInterface.OnClickListener() {
                 @Override
                 public void onClick(DialogInterface dialog, int which) {
-                    ((BT_TTT)getActivity()).endGame(false);
+                    int i = ((BT_TTT)getActivity()).playerIndex;
+                    ((BT_TTT)getActivity()).restartStep.newEvent(new Step.StepEvent(i, false));
                 }
             })
                     .setCancelable(false);
@@ -626,48 +383,424 @@ public class BT_TTT extends AppCompatActivity implements View.OnClickListener{
         }
     }
 
-    private void endGame(boolean answer) {
-        if (!isMaster){
-            sendRestartAnswer(answer);
-            if(!answer){
-                endAct();
-            }
-        }else{
-            this.myRestart = answer;
-            this.myRestartGiven = true;
-            chooseToEndGame();
-        }
-
+    private void displayQuestion(final Question question) {
+        mNumberOfQuestions--;
+        mEnableTouchEvents = true;
+        mQuestionTextView.setText(question.getQuestion());
+        mAnswerButton1.setText(question.getChoiceList().get(0));
+        mAnswerButton2.setText(question.getChoiceList().get(1));
+        mAnswerButton3.setText(question.getChoiceList().get(2));
+        mAnswerButton4.setText(question.getChoiceList().get(3));
     }
 
     private void endAct(){
         Intent intent = new Intent();
-        intent.putExtra(BUNDLE_EXTRA_SCORE, myScore);
         setResult(RESULT_OK, intent);
         finish();
     }
 
-    private void resetEverything(){
-        opRestartGiven = false;
-        myRestartGiven = false;
-        mNumberOfQuestions = 4;
-        if(isMaster) {
+
+    public JSONObject createGenericMessage(){
+        JSONObject obj = new JSONObject();
+        try {
+            obj.put("Id", this.playerIndex);
+
+        }catch(JSONException e) {
+            e.printStackTrace();
+        }
+        return obj;
+    }
+    public class InitialStep extends Step{
+
+        //Wait for all players to be ready
+        public InitialStep(int playerIndex, int numberPlayer){
+            super(playerIndex, numberPlayer);
+        };
+
+        protected void onStartMaster(Step.StepEvent se){
+            //say Master is ready
+            scoreManager = new ScoreManager();
             scoreManager.reset();
+            mNumberOfQuestions = 2;
+
+            newEvent(new StepEvent(0));
+        }
+        protected void onStartPlayer(Step.StepEvent se){
+            //When the player initialize, send ready to master
+            sendInitialReady();
+        }
+
+        @Override
+        protected void onEventMaster(Step.StepEvent se) {
+            //say master is ready or when a player says he is ready
+        }
+
+        protected void onEventPlayer(Step.StepEvent se){
+            //nothing
+        }
+
+        @Override
+        protected void onAllEventOccured() {
+            //Create first question if everyone is ready
+            questionStep.startStep(new StepEvent());
+        }
+
+        private void sendInitialReady(){
+            if (connectedThread != null) {
+                JSONObject obj = createGenericMessage();
+                try {
+                    obj.put("InitialReady", "true");
+
+                }catch(JSONException e) {
+                    e.printStackTrace();
+                }
+                threadWrite(obj.toString());
+            }
         }
     }
 
-    //Only called by Master
-    private void chooseToEndGame(){
-        if (opRestartGiven && myRestartGiven) {
-            if (opRestart && myRestart) {
-                resetEverything();
-                sendRestartGame(true);
-            } else if (!opRestart) {
-                endAct();
-            } else {
-                sendRestartGame(false);
+    public class QuestionStep extends Step{
+
+        boolean result[];
+        //Wait for all players to be ready
+        public QuestionStep(int playerIndex, int numberPlayer){
+            super(playerIndex, numberPlayer);
+            result = new boolean[numberPlayer];
+
+        }
+
+        protected void onStartMaster(Step.StepEvent se){
+            //say Master is ready
+            for(int i=0; i<numberPlayer; i++){
+                result[i]=false;
+            }
+            nextQuestion();
+        }
+
+        protected void onStartPlayer(Step.StepEvent se){
+            //When the question has been received by the player
+            mCurrentQuestion = se.getQuestion();
+            BT_TTT.act_2p.runOnUiThread(
+                    new Runnable() {
+                        @Override
+                        public void run() {
+                            displayQuestion(mCurrentQuestion);
+                        }
+                    }
+            );
+        }
+
+        protected void onEventMaster(Step.StepEvent se) {
+            if (se.getPlayerIndex() ==0 )
+                mEnableTouchEvents = false;
+            handleAnswer(se);
+            result[se.getPlayerIndex()] = se.getAnswer();
+
+        }
+
+        protected void onEventPlayer(Step.StepEvent se){
+            //When the player gives an answer to the question
+            mEnableTouchEvents = false;
+            handleAnswer(se);
+            sendAnswer(se.getAnswer());
+        }
+
+        protected void onAllEventOccured() {
+            updateScore();
+            scoreStep.startStep(new StepEvent());
+
+        }
+
+        private void sendAnswer(boolean isAnswerGood){
+            if (connectedThread != null) {
+                JSONObject obj = createGenericMessage();
+                try {
+                    obj.put("Answer", isAnswerGood);
+                }catch(JSONException e) {
+                    e.printStackTrace();
+                }
+                threadWrite(obj.toString());
             }
         }
+
+        private void handleAnswer(StepEvent se){
+            isMyAnswerGood = se.getAnswer();
+
+
+        }
+
+        private void nextQuestion(){
+            mCurrentQuestion = mQuestionBank.getQuestion();
+            BT_TTT.act_2p.runOnUiThread(
+                    new Runnable() {
+                        @Override
+                        public void run() {
+                            displayQuestion(mCurrentQuestion);
+                        }
+                    }
+            );
+            sendQuestion(mCurrentQuestion);
+        }
+
+        private void sendQuestion(Question question){
+            if (connectedThread != null) {
+                threadWrite(question.toJson().toString());
+            }
+        }
+        private void updateScore(){
+            scoreManager.addScore(result[0], result[1]);
+        }
+    }
+
+    public class ScoreStep extends Step{
+
+        //Wait for all players to be ready
+        public ScoreStep(int playerIndex, int numberPlayer){
+            super(playerIndex, numberPlayer);
+        };
+
+        public void onStartMaster(Step.StepEvent se){
+            int myScore = scoreManager.getMyScore();
+            int opScore = scoreManager.getOpScore();
+            int res = scoreManager.getLastResult();
+            sendResult(res);
+            createScoreDialog(scoreManager.getLastPrint(), myScore, opScore);
+        }
+
+        @Override
+        protected void onStartPlayer(Step.StepEvent se){
+            //display score dialog for player
+            JSONObject jsonObj = se.getObj();
+            try {
+                String lastResult = ScoreManager.printResult(isMyAnswerGood, jsonObj.getInt("Result"));
+                createScoreDialog(lastResult, jsonObj.getInt("opScore"), jsonObj.getInt("masterScore"));
+            }catch (Exception e) { }
+        }
+
+        @Override
+        protected void onEventMaster(Step.StepEvent se) {
+            //Each time someone click OK and is now ready for next question
+        }
+
+        @Override
+        protected void onEventPlayer(Step.StepEvent se) {
+            //when the player click OK, send ready to master
+            sendReady();
+        }
+
+        @Override
+        protected void onAllEventOccured() {
+            //Everyone is ready, choose between restart or next question
+            if (mNumberOfQuestions <= 0) { //TODO: Check that
+                // End the game
+                restartStep.startStep(new StepEvent());
+            }else{
+                    questionStep.startStep(new StepEvent());
+            }
+        }
+
+        private void sendResult(int result){
+            if (connectedThread != null) {
+                JSONObject obj = new JSONObject();
+                try {
+                    obj.put("Result", result);
+                    obj.put("masterScore", scoreManager.getMyScore());
+                    obj.put("opScore", scoreManager.getOpScore());
+
+                }catch(JSONException e) {
+                    e.printStackTrace();
+                }
+                threadWrite(obj.toString());
+            }
+        }
+        private void sendReady(){
+            if (connectedThread != null) {
+                JSONObject obj = createGenericMessage();
+                try {
+                    obj.put("Ready", "true");
+
+                }catch(JSONException e) {
+                    e.printStackTrace();
+                }
+                threadWrite(obj.toString());
+            }
+        }
+        private void createScoreDialog(String title, int myScore, int opScore){
+            Log.i(TAG, "Printing result Toast");
+            FragmentTransaction ft = getFragmentManager().beginTransaction();
+            //Check there is no open dialog
+            Fragment prev = getFragmentManager().findFragmentByTag("dialog");
+            if (prev != null) {
+                ft.remove(prev);
+            }
+            PrintScoreDialogFragment f = PrintScoreDialogFragment.newInstance(title, myScore, opScore);
+            f.show(ft, "dialog");
+
+
+            //Toast.makeText(BT_TTT.act_2p, lastResult, Toast.LENGTH_SHORT).show();
+            Log.i(TAG, "Printed");
+        }
+    }
+
+    public class RestartStep extends Step{
+        private boolean answer[];
+        //Wait for all players to be ready
+        public RestartStep(int playerIndex, int numberPlayer){
+            super(playerIndex, numberPlayer);
+            answer = new boolean[numberPlayer];
+        };
+
+        public void onStartMaster(Step.StepEvent se){
+            sendAskRestart();
+            showRestartFragment();
+        }
+
+        @Override
+        protected void onStartPlayer(Step.StepEvent se){
+            showRestartFragment();
+        }
+
+        @Override
+        protected void onEventMaster(Step.StepEvent se) {
+            //Each time someone click OK and is now ready for next question
+            answer[se.getPlayerIndex()] = se.getAnswer();
+            if (!se.getAnswer()){
+                if(se.getPlayerIndex() == 0)
+                    sendEnd();
+                endAct();
+            }
+        }
+
+        @Override
+        protected void onEventPlayer(Step.StepEvent se) {
+            //when the player click OK, send ready to master
+            sendRestart(se.getAnswer());
+            if (!se.getAnswer()){
+                endAct();
+            }
+        }
+
+        @Override
+        protected void onAllEventOccured() {
+            if (checkRestart()){
+                initialStep.startStep(new StepEvent());
+                sendReset();
+            }else{
+                sendEnd();
+                endAct();
+            }
+        }
+
+        private boolean checkRestart(){
+            for(int i = 0; i<numberPlayer; i++) {
+                if (!answer[i])
+                    return false;
+            }
+            return true;
+
+        }
+
+
+        private void showRestartFragment(){
+            FragmentTransaction ft = getFragmentManager().beginTransaction();
+            Fragment prev = getFragmentManager().findFragmentByTag("dialog");
+            if (prev != null) {
+                ft.remove(prev);
+            }
+            AskNewGameDialogFragment f = AskNewGameDialogFragment.newInstance("TODO");
+            f.show(ft, "dialog");
+        }
+        private void sendAskRestart(){
+            if (connectedThread != null) {
+                JSONObject obj = createGenericMessage();
+                try {
+                    obj.put("RestartAsk", "true");
+
+                }catch(JSONException e) {
+                    e.printStackTrace();
+                }
+                threadWrite(obj.toString());
+            }
+        }
+        private void sendRestart(boolean ans){
+            if (connectedThread != null) {
+                JSONObject obj = createGenericMessage();
+                try {
+                    obj.put("RestartAns", ans);
+
+                }catch(JSONException e) {
+                    e.printStackTrace();
+                }
+                threadWrite(obj.toString());
+            }
+        }
+        private void sendReset(){
+            if (connectedThread != null) {
+                JSONObject obj = createGenericMessage();
+                try {
+                    obj.put("Reset", true);
+
+                }catch(JSONException e) {
+                    e.printStackTrace();
+                }
+                threadWrite(obj.toString());
+            }
+        }
+        private void sendEnd(){
+            if (connectedThread != null) {
+                JSONObject obj = createGenericMessage();
+                try {
+                    obj.put("End", true);
+
+                }catch(JSONException e) {
+                    e.printStackTrace();
+                }
+                threadWrite(obj.toString());
+            }
+        }
+    }
+
+
+    public class StepFactory {
+
+        private int playerIndex;
+        private int playerNumber;
+
+        public StepFactory(int playerIndex, int playerNumber){
+            this.playerIndex = playerIndex;
+            this.playerNumber = playerNumber;
+
+        }
+
+        public Step createStep(TypeStep stepType){
+            switch (stepType){
+                case INITALSTEP:
+                    return new InitialStep(playerIndex, playerNumber);
+                case QUESTION:
+                    return new QuestionStep(playerIndex, playerNumber);
+                case SCORE:
+                    return new ScoreStep(playerIndex, playerNumber);
+                case RESTART:
+                    return new RestartStep(playerIndex, playerNumber);
+            }
+            return null;
+        }
+
+        public boolean getIsMaster() {
+            return isMaster;
+        }
+
+        public void setIsMaster(boolean master) {
+            isMaster = master;
+        }
+
+    }
+    private enum TypeStep
+    {
+        INITALSTEP,
+        QUESTION,
+        SCORE,
+        RESTART
     }
 
 }

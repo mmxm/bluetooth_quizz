@@ -1,0 +1,40 @@
+{
+  "questions": [
+    {
+      "question": "What is the name of the current french president?",
+      "answers": [
+        "François Hollande",
+        "Emmanuel Macron",
+        "Jacques Chirac",
+        "François Mitterand"
+      ]
+    },
+    {
+      "question": "How many countries are there in the European Union?",
+      "answers": [
+        "15",
+        "24",
+        "28",
+        "32"
+      ]
+    },
+    {
+      "question": "Who is the creator of the Android operating system?",
+      "answers": [
+        "Andy Rubin",
+        "Steve Wozniak",
+        "Jake Wharton",
+        "Paul Smith"
+      ]
+    },
+    {
+      "question": "When did the first man land on the moon?",
+      "answers": [
+        "1958",
+        "1962",
+        "1967",
+        "1969"
+      ]
+    }
+  ]
+}

@@ -4,6 +4,10 @@ public class ScoreManager {
     private int myScore;
 
     private int opScore;
+    private int lastResult;
+    private String lastPrint;
+
+    boolean myLastAnswerIsGood;
 
     public void Game(){
         setMyScore(0);
@@ -15,16 +19,25 @@ public class ScoreManager {
         if (isMyAnswerGood && isOpAnswerGood){
             this.setOpScore(this.getOpScore()+1);
             this.setMyScore(this.getMyScore()+1);
-            return 1;
+            lastResult = 1;
         }else if(isMyAnswerGood){
             this.setMyScore(this.getMyScore()+2);
-            return 2;
+            lastResult = 2;
         } else if(isOpAnswerGood){
             this.setOpScore(this.getOpScore()+2);
-            return 2;
+            lastResult =  2;
         }else{
-            return 0;
+            lastResult =  0;
         }
+        lastPrint = printResult(isMyAnswerGood, lastResult);
+        return lastResult;
+    }
+
+    public int getLastResult(){
+        return lastResult;
+    }
+    public String getLastPrint(){
+        return lastPrint;
     }
 
     public static String printResult(boolean isMyAnswerGood, int result){
@@ -64,6 +77,15 @@ public class ScoreManager {
 
     private void setOpScore(int opScore) {
         this.opScore = opScore;
+    }
+
+
+    public boolean getMyLastAnswerIsGood() {
+        return myLastAnswerIsGood;
+    }
+
+    public void setMyLastAnswerIsGood(boolean myLastAnswerIsGood) {
+        this.myLastAnswerIsGood = myLastAnswerIsGood;
     }
 
 }
