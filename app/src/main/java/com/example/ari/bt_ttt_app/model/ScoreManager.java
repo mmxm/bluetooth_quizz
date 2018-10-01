@@ -62,6 +62,16 @@ public class ScoreManager {
         this.opScore = opScore_;
     }
 
+    public String getFinalResult(){
+        if(myScore == opScore){
+            return "Nul";
+        } else if(myScore < opScore){
+            return "You lose the Game";
+        } else {
+            return "You win the Game";
+        }
+    }
+
     public int getMyScore() {
         return myScore;
     }

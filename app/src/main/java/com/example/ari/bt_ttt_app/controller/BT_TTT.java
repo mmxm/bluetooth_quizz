@@ -421,6 +421,8 @@ public class BT_TTT extends AppCompatActivity implements View.OnClickListener{
         }
         protected void onStartPlayer(Step.StepEvent se){
             //When the player initialize, send ready to master
+            scoreManager = new ScoreManager();
+            scoreManager.reset();
             sendInitialReady();
         }
 
@@ -566,8 +568,11 @@ public class BT_TTT extends AppCompatActivity implements View.OnClickListener{
             //display score dialog for player
             JSONObject jsonObj = se.getObj();
             try {
+                int opScore = jsonObj.getInt("opScore");
+                int masterScore = jsonObj.getInt("masterScore");
+                scoreManager.updateScore(opScore, masterScore);
                 String lastResult = ScoreManager.printResult(isMyAnswerGood, jsonObj.getInt("Result"));
-                createScoreDialog(lastResult, jsonObj.getInt("opScore"), jsonObj.getInt("masterScore"));
+                createScoreDialog(lastResult, opScore, masterScore);
             }catch (Exception e) { }
         }
 
@@ -646,12 +651,12 @@ public class BT_TTT extends AppCompatActivity implements View.OnClickListener{
 
         public void onStartMaster(Step.StepEvent se){
             sendAskRestart();
-            showRestartFragment();
+            showRestartFragment(scoreManager.getFinalResult());
         }
 
         @Override
         protected void onStartPlayer(Step.StepEvent se){
-            showRestartFragment();
+            showRestartFragment(scoreManager.getFinalResult());
         }
 
         @Override
@@ -695,13 +700,13 @@ public class BT_TTT extends AppCompatActivity implements View.OnClickListener{
         }
 
 
-        private void showRestartFragment(){
+        private void showRestartFragment(String title){
             FragmentTransaction ft = getFragmentManager().beginTransaction();
             Fragment prev = getFragmentManager().findFragmentByTag("dialog");
             if (prev != null) {
                 ft.remove(prev);
             }
-            AskNewGameDialogFragment f = AskNewGameDialogFragment.newInstance("Restart");
+            AskNewGameDialogFragment f = AskNewGameDialogFragment.newInstance(title);
             f.show(ft, "dialog");
         }
         private void sendAskRestart(){
