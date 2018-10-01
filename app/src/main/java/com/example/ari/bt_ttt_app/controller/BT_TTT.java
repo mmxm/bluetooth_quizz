@@ -46,6 +46,7 @@ public class BT_TTT extends AppCompatActivity implements View.OnClickListener{
     private QuestionBank mQuestionBank;
     Question mCurrentQuestion;
 
+    private int initialNumberQuestions = 3;
     private int mNumberOfQuestions;
 
     public static final String BUNDLE_EXTRA_SCORE = "BUNDLE_EXTRA_SCORE";
@@ -72,18 +73,11 @@ public class BT_TTT extends AppCompatActivity implements View.OnClickListener{
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        Log.i(TAG, "OK****************************");
         act_2p = this;
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_bt_ttt);mQuestionBank = this.generateQuestions();
-
-//        if (savedInstanceState != null) {
-//            mNumberOfQuestions = savedInstanceState.getInt(BUNDLE_STATE_QUESTION);
-//        } else {
-//
-//        }
-
-        //mNumberOfQuestions = 2;
+        setContentView(R.layout.activity_bt_ttt);
+        mQuestionBank = this.generateQuestions();
+        //mQuestionBank = new QuestionBank(this);
 
         // Wire widgets
         mQuestionTextView = (TextView) findViewById(R.id.activity_game_question_text);
@@ -421,7 +415,7 @@ public class BT_TTT extends AppCompatActivity implements View.OnClickListener{
             //say Master is ready
             scoreManager = new ScoreManager();
             scoreManager.reset();
-            mNumberOfQuestions = 2;
+            mNumberOfQuestions = initialNumberQuestions;
 
             newEvent(new StepEvent(0));
         }
@@ -707,7 +701,7 @@ public class BT_TTT extends AppCompatActivity implements View.OnClickListener{
             if (prev != null) {
                 ft.remove(prev);
             }
-            AskNewGameDialogFragment f = AskNewGameDialogFragment.newInstance("TODO");
+            AskNewGameDialogFragment f = AskNewGameDialogFragment.newInstance("Restart");
             f.show(ft, "dialog");
         }
         private void sendAskRestart(){

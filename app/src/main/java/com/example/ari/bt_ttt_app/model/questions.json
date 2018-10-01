@@ -1,40 +1,44 @@
 {
   "questions": [
     {
-      "question": "What is the name of the current french president?",
-      "answers": [
+      "mQuestion": "What is the name of the current french president?",
+      "mChoiceList": [
         "François Hollande",
         "Emmanuel Macron",
         "Jacques Chirac",
         "François Mitterand"
-      ]
+      ],
+      "mAnswerIndex" : 1
     },
     {
-      "question": "How many countries are there in the European Union?",
-      "answers": [
+      "mQuestion": "How many countries are there in the European Union?",
+      "mChoiceList": [
         "15",
         "24",
         "28",
         "32"
-      ]
+      ],
+      "mAnswerIndex" : 2
     },
     {
-      "question": "Who is the creator of the Android operating system?",
-      "answers": [
+      "mQuestion": "Who is the creator of the Android operating system?",
+      "mChoiceList": [
         "Andy Rubin",
         "Steve Wozniak",
         "Jake Wharton",
         "Paul Smith"
-      ]
+      ],
+      "mAnswerIndex" : 0
     },
     {
-      "question": "When did the first man land on the moon?",
-      "answers": [
+      "mQuestion": "When did the first man land on the moon?",
+      "mChoiceList": [
         "1958",
         "1962",
         "1967",
         "1969"
-      ]
+      ],
+      "mAnswerIndex" : 3
     }
   ]
 }

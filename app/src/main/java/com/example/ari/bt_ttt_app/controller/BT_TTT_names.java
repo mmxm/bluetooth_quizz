@@ -73,7 +73,6 @@ public class BT_TTT_names extends AppCompatActivity {
 
     public synchronized void connected_test() {
         // Move information to Game activity and finish this activity.
-        MainActivity.Opponent = "fake_opponent";
         master = findViewById(R.id.master);
         isMaster = master.isChecked();
         Intent intent = new Intent(BT_TTT_names.this, BT_TTT.class);
